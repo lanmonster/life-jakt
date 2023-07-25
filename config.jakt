@@ -1,0 +1,13 @@
+import painter { Color, PainterConfig }
+
+comptime cell_size() => 10u64
+comptime screen_width() => 1500u64
+comptime screen_height() => 1000u64
+comptime tick_delay() => 100u64 // smaller means faster
+comptime painter_config() => PainterConfig(
+    bg_color: Color::black()
+    grid_color: Color::black()
+    selection_color: Color::blue()
+    alive_color: Color::green()
+    window_title: "Conway's Game of Life - Jakt"
+)

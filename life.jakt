@@ -1,0 +1,75 @@
+import cell { Cell }
+
+
+fn play_life(anon cells: &mut [[Cell]]) throws {
+    mut updates: [(u64, u64, bool)] = []
+    for row in 0..(cells.size() as! u64) {
+        for col in 0..(cells[row].size() as! u64) {
+            let cell = cells[row][col]
+            let live_count = count_live_neighbors(&cells, row, col)
+            if cell.is_alive {
+                // Any live cell with fewer than two live neighbours dies, as if by underpopulation.
+                // Any live cell with more than three live neighbours dies, as if by overpopulation.
+                if live_count < 2 or live_count > 3 {
+                    updates.push((row, col, false))
+                }
+                // Any live cell with two or three live neighbours lives on to the next generation.
+            } else {
+                // Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
+                if live_count == 3 {
+                    updates.push((row, col, true))
+                }
+            }
+        }
+    }
+
+    for (row, col, is_alive) in updates {
+        cells[row][col].is_alive = is_alive
+    }
+}
+
+fn count_live_neighbors(anon cells: &[[Cell]], row: u64, col: u64) throws -> u64 {
+    mut live_neighbors = 0u64
+
+    let neighbors: [(u64, u64)?] = [
+        match row > 0 and col > 0 {
+            true => (row - 1, col - 1)
+            false => None
+        },
+        match col > 0 {
+            true => (row, col - 1)
+            false => None
+        },
+        match col > 0 {
+            true => (row + 1, col - 1)
+            false => None
+        },
+        match row > 0 {
+            true => (row - 1, col)
+            false => None
+        },
+        Some((row + 1, col)),
+        match row > 0 {
+            true => (row - 1, col + 1)
+            false => None
+        },
+        Some((row, col + 1)),
+        Some((row + 1, col + 1)),
+    ]
+
+    for maybe_neighbor in neighbors {
+        guard maybe_neighbor is Some else {
+            continue
+        }
+
+        let (r, c) = maybe_neighbor!
+        if r < cells.size() as! u64 and c < cells[0].size() as! u64 {
+            let neighbor = cells[r][c]
+            if neighbor.is_alive {
+                live_neighbors++
+            }
+        }
+    }
+
+    return live_neighbors
+}

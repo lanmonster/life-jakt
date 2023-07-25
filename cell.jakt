@@ -1,0 +1,9 @@
+struct Cell {
+    row: u64
+    col: u64
+    is_alive: bool
+
+    public fn equals(this, anon other: Cell) -> bool {
+        return .row == other.row and .col == other.col and .is_alive == other.is_alive
+    }
+}

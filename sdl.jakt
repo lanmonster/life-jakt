@@ -1,0 +1,511 @@
+import extern c "SDL.h" {
+    extern struct SDL_Renderer {}
+    extern struct SDL_Window {}
+    extern struct SDL_AudioDeviceID {}
+    extern struct SDL_AudioSpec {}
+    extern struct SDL_Texture {}
+    extern struct SDL_Rect {}
+    extern struct SDL_PixelFormat {
+        BitsPerPixel: u8
+        Rmask: u32
+        Gmask: u32
+        Bmask: u32
+        Amask: u32
+    }
+    extern struct SDL_Surface {
+        format: raw SDL_PixelFormat
+    }
+    extern struct SDL_GameController {}
+
+    extern fn SDL_SetMainReady() -> void
+    extern fn SDL_Init(flags: u32) -> c_int
+    extern fn SDL_CreateWindowAndRenderer(width: c_int
+        height: c_int
+        window_flags: u32
+        window: raw raw SDL_Window
+        renderer: raw raw SDL_Renderer) -> c_int
+    extern fn SDL_CreateWindow(title: raw c_char, x: c_int, y: c_int, w: c_int, h: c_int, flags: u32) -> raw SDL_Window
+    extern fn SDL_SetWindowTitle(window: raw SDL_Window, title: raw c_char) -> void
+    extern fn SDL_GetWindowSurface(window: raw SDL_Window) -> raw SDL_Surface
+    extern fn SDL_SetRenderDrawColor(renderer: raw SDL_Renderer, r: u8, g: u8, b: u8, a: u8) -> c_int
+    extern fn SDL_RenderClear(renderer: raw SDL_Renderer) -> c_int
+    extern fn SDL_RenderPresent(renderer: raw SDL_Renderer) -> c_int
+    extern fn SDL_RenderDrawPoint(renderer: raw SDL_Renderer, x: c_int, y: c_int) -> c_int
+    extern fn SDL_RenderSetScale(renderer: raw SDL_Renderer, scaleX: f32, scaleY: f32) -> c_int
+    extern fn SDL_DestroyRenderer(renderer: raw SDL_Renderer) -> void
+    extern fn SDL_DestroyWindow(window: raw SDL_Window) -> void
+    extern fn SDL_CloseAudioDevice(device: u32) -> void
+    extern fn SDL_Quit() -> void
+    extern fn SDL_Delay(ms: u32) -> void
+    extern fn SDL_PauseAudioDevice(device: u32, mode: u32)
+    extern fn SDL_QueueAudio(device: u32, sample: raw i16, sample_size: u32)
+    extern fn SDL_ClearQueuedAudio(device: u32)
+    extern fn SDL_LockTexture(mut texture: raw SDL_Texture, rect: raw SDL_Rect, pixels: raw raw void, pitch: raw c_int) -> c_int
+    extern fn SDL_UnlockTexture(mut texture: raw SDL_Texture) -> void
+    extern fn SDL_RenderCopy(mut renderer: raw SDL_Renderer, mut texture: raw SDL_Texture, srcrect: raw SDL_Rect, dstrect: raw SDL_Rect) -> c_int
+    extern fn SDL_CreateTexture(mut renderer: raw SDL_Renderer, format: u32, access: c_int, w: c_int, h: c_int) -> raw SDL_Texture
+    extern fn SDL_UpdateWindowSurface(window: raw SDL_Window) -> c_int
+    extern fn SDL_CreateRGBSurfaceFrom(
+        pixels: raw void
+        width: c_int
+        height: c_int
+        depth: c_int
+        pitch: c_int
+        Rmask: u32
+        Gmask: u32
+        Bmask: u32
+        Amask: u32
+    ) -> raw SDL_Surface
+    extern fn SDL_BlitScaled(source: raw SDL_Surface, srcrect: raw SDL_Rect, dest: raw SDL_Surface, destrect: raw SDL_Rect) -> c_int
+    extern fn SDL_GetTicks64() -> u64
+    extern fn SDL_NumJoysticks() -> c_int
+    extern fn SDL_IsGameController(index: c_int) -> bool
+    extern fn SDL_GameControllerOpen(index: c_int) -> raw SDL_GameController
+    extern fn SDL_GameControllerClose(gamepad: raw SDL_GameController)
+    extern fn SDL_GetError() -> raw c_char
+    extern fn SDL_GameControllerEventState(state: c_int) -> c_int
+    extern fn SDL_RenderSetVSync(mut renderer: raw SDL_Renderer, vsync: c_int) -> c_int
+}
+
+enum Key {
+    Up
+    Down
+    Left
+    Right
+    Return
+    Spacebar
+    Q
+    Z
+    X
+    Tab
+    D
+    H
+    J
+    L
+}
+
+enum Button {
+    Up
+    Down
+    Left
+    Right
+    Start
+    Select
+    A
+    B
+}
+
+enum SDLEvent {
+    Quit
+    KeyDown(key: Key)
+    KeyUp(key: Key)
+    ButtonDown(button: Button)
+    ButtonUp(button: Button)
+}
+
+// TODO: nullptr constant anyone?
+fn null<T>() -> raw T {
+    unsafe {
+        cpp {
+            "return nullptr;"
+        }
+    }
+    abort()
+}
+
+class SDL {
+    renderer: raw SDL_Renderer
+    window: raw SDL_Window
+    audio_device: u32
+    public surface: raw SDL_Surface
+    last_frame_time: u64
+    gamepad: raw SDL_GameController
+
+    public fn construct() throws -> SDL {
+        return SDL(
+            renderer: null<SDL_Renderer>()
+            window: null<SDL_Window>()
+            audio_device: 0
+            surface: null()
+            last_frame_time: 0
+            gamepad: null<SDL_GameController>()
+        )
+    }
+
+    public fn init_video(mut this, width: i64, height: i64, title: String) throws {
+        let sdl_init_flags: u32 = 0x2030 // Video, Audio, Gamecontroller
+        let sdl_windowpos_undefined: c_int = 0x1FFF0000
+        unsafe {
+            SDL_SetMainReady()
+            SDL_Init(flags: sdl_init_flags)
+            SDL_GameControllerEventState(state: 1)
+            SDL_CreateWindowAndRenderer(
+                width: width as! c_int
+                height: height as! c_int
+                window_flags: 0
+                window: &raw .window
+                renderer: &raw .renderer
+            )
+            .surface = .get_window_surface()
+            SDL_SetWindowTitle(window: .window, title: title.c_string())
+        }
+    }
+
+    public fn set_render_draw_color(this, red: u8, green: u8, blue: u8, alpha: u8) {
+        unsafe {
+            cpp {
+                "SDL_SetRenderDrawColor((SDL_Renderer *)this->renderer, red, green, blue, alpha);"
+            }
+        }
+    }
+
+    public fn render_set_scale(this, scale_x: f64, scale_y: f64) {
+        unsafe {
+            cpp {
+                "SDL_RenderSetScale((SDL_Renderer *)this->renderer, scale_x, scale_y);"
+            }
+        }
+
+    }
+
+    public fn render_clear(this) {
+        unsafe {
+            cpp {
+                "SDL_RenderClear((SDL_Renderer *)this->renderer);"
+            }
+        }
+    }
+
+    public fn render_draw_point(this, x: u64, y: u64) {
+        unsafe {
+            cpp {
+                "SDL_RenderDrawPoint((SDL_Renderer *)this->renderer, x, y);"
+            }
+        }
+    }
+
+    public fn render_draw_rect(this, x: i32, y: i32, w: i32, h: i32) {
+        unsafe {
+            cpp {
+                "
+                SDL_Rect rect = {x, y, w, h};
+                SDL_RenderDrawRect((SDL_Renderer *)this->renderer, &rect);"
+            }
+        }
+    }
+    public fn render_fill_rect(this, x: i32, y: i32, w: i32, h: i32) {
+        unsafe {
+            cpp {
+                "
+                SDL_Rect rect = {x, y, w, h};
+                SDL_RenderFillRect((SDL_Renderer *)this->renderer, &rect);"
+            }
+        }
+    }
+
+    public fn render_draw_line(this, x1: i32, y1: i32, x2: i32, y2: i32) {
+        unsafe {
+            cpp {
+                "SDL_RenderDrawLine((SDL_Renderer *)this->renderer, x1, y1, x2, y2);"
+            }
+        }
+    }
+
+    public fn render_present(this) {
+        unsafe {
+            cpp {
+                "SDL_RenderPresent((SDL_Renderer *)this->renderer);"
+            }
+        }
+    }
+
+    public fn init_audio(mut this) {
+        unsafe {
+            cpp {
+                "// opening an audio device:
+                SDL_AudioSpec audio_spec;
+                SDL_zero(audio_spec);
+                audio_spec.freq = 44100;
+                audio_spec.format = AUDIO_S16SYS;
+                audio_spec.channels = 1;
+                audio_spec.samples = 1024;
+                audio_spec.callback = NULL;
+
+                this->audio_device = SDL_OpenAudioDevice(
+                    NULL, 0, &audio_spec, NULL, 0);"
+            }
+        }
+    }
+
+    public fn poll_event(this) -> SDLEvent? {
+        unsafe {
+            cpp {
+                "SDL_Event event;
+                const int has_event = SDL_PollEvent(&event);
+                if (has_event && event.type == SDL_QUIT) {
+                    const Optional<SDLEvent> event = typename SDLEvent::Quit();
+                    return event;
+                } else if (has_event && event.type == SDL_KEYDOWN) {
+                    if (event.key.keysym.scancode == SDL_SCANCODE_UP) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyDown(typename Key::Up());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_DOWN) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyDown(typename Key::Down());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_LEFT) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyDown(typename Key::Left());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_RIGHT) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyDown(typename Key::Right());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_SPACE) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyDown(typename Key::Spacebar());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_TAB) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyDown(typename Key::Tab());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_RETURN) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyDown(typename Key::Return());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_Q) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyDown(typename Key::Q());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_Z) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyDown(typename Key::Z());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_X) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyDown(typename Key::X());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_D) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyDown(typename Key::D());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_H) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyDown(typename Key::H());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_J) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyDown(typename Key::J());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_L) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyDown(typename Key::L());
+                        return event;
+                    }
+                } else if (has_event && event.type == SDL_KEYUP) {
+                    if (event.key.keysym.scancode == SDL_SCANCODE_UP) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyUp(typename Key::Up());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_DOWN) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyUp(typename Key::Down());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_LEFT) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyUp(typename Key::Left());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_RIGHT) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyUp(typename Key::Right());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_TAB) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyUp(typename Key::Tab());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_RETURN) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyUp(typename Key::Return());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_Z) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyUp(typename Key::Z());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_X) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyUp(typename Key::X());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_D) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyUp(typename Key::D());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_H) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyUp(typename Key::H());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_J) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyUp(typename Key::J());
+                        return event;
+                    } else if (event.key.keysym.scancode == SDL_SCANCODE_L) {
+                        const Optional<SDLEvent> event = typename SDLEvent::KeyUp(typename Key::L());
+                        return event;
+                    }
+                } else if (has_event && event.type == SDL_CONTROLLERBUTTONDOWN) {
+                    if (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_UP) {
+                        const Optional<SDLEvent> event = typename SDLEvent::ButtonDown(typename Button::Up());
+                        return event;
+                    } else if (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_DOWN) {
+                            const Optional<SDLEvent> event = typename SDLEvent::ButtonDown(typename Button::Down());
+                            return event;
+                    } else if (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_LEFT) {
+                            const Optional<SDLEvent> event = typename SDLEvent::ButtonDown(typename Button::Left());
+                            return event;
+                    } else if (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
+                            const Optional<SDLEvent> event = typename SDLEvent::ButtonDown(typename Button::Right());
+                            return event;
+                    } else if (event.cbutton.button == SDL_CONTROLLER_BUTTON_A) {
+                            const Optional<SDLEvent> event = typename SDLEvent::ButtonDown(typename Button::A());
+                            return event;
+                    } else if (event.cbutton.button == SDL_CONTROLLER_BUTTON_B) {
+                            const Optional<SDLEvent> event = typename SDLEvent::ButtonDown(typename Button::B());
+                            return event;
+                    } else if (event.cbutton.button == SDL_CONTROLLER_BUTTON_START) {
+                            const Optional<SDLEvent> event = typename SDLEvent::ButtonDown(typename Button::Start());
+                            return event;
+                    } else if (event.cbutton.button == SDL_CONTROLLER_BUTTON_BACK) {
+                            const Optional<SDLEvent> event = typename SDLEvent::ButtonDown(typename Button::Select());
+                            return event;
+                    }
+                } else if (has_event && event.type == SDL_CONTROLLERBUTTONUP) {
+                    if (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_UP) {
+                        const Optional<SDLEvent> event = typename SDLEvent::ButtonUp(typename Button::Up());
+                        return event;
+                    } else if (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_DOWN) {
+                        const Optional<SDLEvent> event = typename SDLEvent::ButtonUp(typename Button::Down());
+                        return event;
+                    } else if (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_LEFT) {
+                        const Optional<SDLEvent> event = typename SDLEvent::ButtonUp(typename Button::Left());
+                        return event;
+                    } else if (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
+                        const Optional<SDLEvent> event = typename SDLEvent::ButtonUp(typename Button::Right());
+                        return event;
+                    } else if (event.cbutton.button == SDL_CONTROLLER_BUTTON_A) {
+                        const Optional<SDLEvent> event = typename SDLEvent::ButtonUp(typename Button::A());
+                        return event;
+                    } else if (event.cbutton.button == SDL_CONTROLLER_BUTTON_B) {
+                        const Optional<SDLEvent> event = typename SDLEvent::ButtonUp(typename Button::B());
+                        return event;
+                    } else if (event.cbutton.button == SDL_CONTROLLER_BUTTON_START) {
+                        const Optional<SDLEvent> event = typename SDLEvent::ButtonUp(typename Button::Start());
+                        return event;
+                    }  else if (event.cbutton.button ==  SDL_CONTROLLER_BUTTON_BACK) {
+                        const Optional<SDLEvent> event = typename SDLEvent::ButtonUp(typename Button::Select());
+                        return event;
+                    }
+                }"
+            }
+        }
+
+        return None
+    }
+
+    public fn quit(this) {
+        unsafe {
+            SDL_DestroyWindow(window: .window)
+            SDL_CloseAudioDevice(device: .audio_device)
+            SDL_GameControllerClose(gamepad: .gamepad)
+            SDL_Quit()
+        }
+    }
+
+    public fn delay(this, anon ms: u32) {
+        unsafe {
+            SDL_Delay(ms)
+        }
+    }
+
+    public fn enable_audio(mut this) {
+        unsafe {
+            SDL_PauseAudioDevice(device: .audio_device, mode: 0)
+        }
+    }
+
+    public fn disable_audio(mut this) {
+        unsafe {
+            SDL_PauseAudioDevice(device: .audio_device, mode: 1)
+        }
+    }
+
+    public fn queue_audio(mut this, mut data: [i16]) {
+        unsafe {
+            cpp {
+                "SDL_QueueAudio(this->audio_device, data.unsafe_data(), data.size() * 2);"
+            }
+        }
+    }
+
+    public fn clear_queued_audio(mut this) {
+        unsafe {
+            SDL_ClearQueuedAudio(device: .audio_device)
+        }
+    }
+    public fn lock_texture(this, mut texture: raw SDL_Texture, rect: raw SDL_Rect, mut pixels: raw raw void, mut pitch: raw c_int) -> c_int {
+        unsafe {
+            return SDL_LockTexture(texture, rect, pixels, pitch)
+        }
+    }
+
+    public fn unlock_texture(this, mut texture: raw SDL_Texture) -> void {
+        unsafe {
+            SDL_UnlockTexture(texture)
+        }
+    }
+
+    public fn get_window_surface(this) -> raw SDL_Surface {
+        unsafe {
+            return SDL_GetWindowSurface(window: .window)
+        }
+    }
+
+    public fn update_window_surface(this) -> c_int {
+        unsafe {
+            return SDL_UpdateWindowSurface(window: .window)
+        }
+    }
+
+    public fn create_rgb_surface_from(
+        this
+        mut pixels: raw void
+        width: c_int
+        height: c_int
+        depth: c_int
+        pitch: c_int
+        Rmask: u32
+        Gmask: u32
+        Bmask: u32
+        Amask: u32
+    ) -> raw SDL_Surface {
+        unsafe {
+            return SDL_CreateRGBSurfaceFrom(pixels, width, height, depth, pitch, Rmask, Gmask, Bmask, Amask)
+        }
+    }
+
+    public fn blit_scaled(
+        this
+        mut source: raw SDL_Surface
+        mut srcrect: raw SDL_Rect
+        mut dest: raw SDL_Surface
+        mut destrect: raw SDL_Rect
+    ) -> c_int {
+        unsafe {
+            return SDL_BlitScaled(source, srcrect, dest, destrect)
+        }
+    }
+
+    public fn delta_time(mut this) -> u64 {
+        mut this_frame_time = 0u64
+        unsafe {
+            this_frame_time = SDL_GetTicks64()
+        }
+        if .last_frame_time == 0 {
+            .last_frame_time = this_frame_time
+            return 0
+        } else {
+            let delta_time = this_frame_time - .last_frame_time
+            .last_frame_time = this_frame_time
+            return delta_time
+        }
+    }
+
+    public fn get_controller(mut this) {
+        mut joysticks: c_int = 0
+        unsafe {
+            joysticks = SDL_NumJoysticks()
+        }
+        if joysticks >= 0 {
+            unsafe {
+                // TODO: Make game controller detection more complex
+                if (SDL_IsGameController(index: 0 as! c_int)) {
+                    .gamepad = SDL_GameControllerOpen(index: 0 as! c_int)
+                }
+            }
+        }
+    }
+}

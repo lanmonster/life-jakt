@@ -1,0 +1,22 @@
+import sdl { SDL, SDLEvent }
+
+enum Code {
+    Continue
+    Exit
+}
+
+class EventHandler {
+    private sdl: SDL
+
+    public fn construct(sdl: SDL) throws -> EventHandler {
+        return EventHandler(sdl)
+    }
+
+    public fn poll(this, on_event: fn(event: SDLEvent) -> Code) -> Code {
+        let e = .sdl.poll_event()
+        if e is Some(event) {
+            return on_event(event)
+        }
+        return Code::Continue
+    }
+}

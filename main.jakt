@@ -1,0 +1,124 @@
+import sdl { SDL, SDLEvent }
+import painter { Color, Painter, PainterConfig }
+import cell { Cell }
+import event { Code, EventHandler }
+import life { play_life }
+import config { cell_size, painter_config, screen_height, screen_width, tick_delay }
+
+
+fn main() -> c_int {
+    let grid_width = screen_width() / cell_size()
+    let grid_height = screen_height() / cell_size()
+
+    mut sdl = SDL::construct()
+    defer sdl.quit()
+
+    let painter = Painter::construct(
+        sdl
+        screen_w: screen_width()
+        screen_h: screen_height()
+        cell_size: cell_size()
+        config: painter_config()
+    )
+    let event_handler = EventHandler::construct(sdl)
+
+    mut playing = false
+    mut elapsed_time = 0u64
+    mut selected_row: u64? = None
+    mut selected_col: u64? = None
+    let is_selecting = fn[&selected_row, &selected_col]() -> bool => selected_row is Some and selected_col is Some
+    mut cells: [[Cell]] = []
+    for r in 0..grid_height {
+        mut row: [Cell] = []
+        for c in 0..grid_width {
+            row.push(Cell(row: r, col: c, is_alive: false))
+        }
+        cells.push(row)
+    }
+
+    loop {
+        if playing and elapsed_time >= tick_delay() {
+            elapsed_time = 0
+            play_life(&mut cells)
+        }
+
+        painter.clear_screen()
+        painter.draw_grid()
+        painter.draw_alive_cells(&cells)
+        painter.draw_selection_rect(row: selected_row, col: selected_col)
+        painter.commit()
+
+        let code = event_handler.poll(
+            on_event: fn[
+                &selected_row
+                &selected_col
+                &cells
+                &grid_height
+                &grid_width
+                &playing
+                &elapsed_time
+                &is_selecting
+            ](event: SDLEvent) -> Code {
+                match event {
+                    Quit => { return Code::Exit }
+                    KeyDown(key) => {
+                        match key {
+                            Q => { return Code::Exit }
+                            Tab => {
+                                playing = not playing
+                                elapsed_time = 0
+                                selected_row = None
+                                selected_col = None
+                            }
+                            Up => {
+                                if is_selecting() and selected_row! > 0 {
+                                    selected_row = selected_row! - 1
+                                }
+                            }
+                            Down => {
+                                if is_selecting() and selected_row! < grid_height - 1 {
+                                    selected_row = selected_row! + 1
+                                }
+                            }
+                            Left => {
+                                if is_selecting() and selected_col! > 0 {
+                                    selected_col = selected_col! - 1
+                                }
+                            }
+                            Right => {
+                                if is_selecting() and selected_col! < grid_width - 1 {
+                                    selected_col = selected_col! + 1
+                                }
+                            }
+                            Spacebar => {
+                                if is_selecting() {
+                                    selected_row = None
+                                    selected_col = None
+                                } else {
+                                    if playing {
+                                        playing = false
+                                    }
+                                    selected_row = 0
+                                    selected_col = 0
+                                }
+                            }
+                            Return => {
+                                if is_selecting() {
+                                    cells[selected_row!][selected_col!].is_alive = not cells[selected_row!][selected_col!].is_alive
+                                }
+                            }
+                            else => {}
+                        }
+                    }
+                    else => {}
+                }
+                return Code::Continue
+            }
+        )
+        elapsed_time++
+
+        if code is Exit {
+            return 0
+        }
+    }
+}

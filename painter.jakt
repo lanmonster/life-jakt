@@ -1,0 +1,121 @@
+import sdl { SDL }
+import cell { Cell }
+
+namespace Color {
+    // type RGBA = (u8, u8, u8, u8)
+    comptime black(alpha: u8 = 255) -> (u8, u8, u8, u8) => (0u8, 0u8, 0u8, alpha)
+    comptime red(alpha: u8 = 255) -> (u8, u8, u8, u8) => (255u8, 0u8, 0u8, alpha)
+    comptime green(alpha: u8 = 255) -> (u8, u8, u8, u8) => (0u8, 255u8, 0u8, alpha)
+    comptime blue(alpha: u8 = 255) -> (u8, u8, u8, u8) => (0u8, 0u8, 255u8, alpha)
+    comptime custom(r: u8, g: u8, b: u8, a: u8 = 255) => (r, g, b, a)
+}
+
+struct PainterConfig {
+    bg_color: (u8, u8, u8, u8)
+    grid_color: (u8, u8, u8, u8)
+    selection_color: (u8, u8, u8, u8)
+    alive_color: (u8, u8, u8, u8)
+    window_title: String
+}
+
+class Painter {
+    private sdl: SDL
+    private screen_w: u64
+    private screen_h: u64
+    private cell_size: u64
+    private config: PainterConfig
+
+    private fn scale_as_int(this) -> u64 => .cell_size / 10
+    private fn scale_as_float(this) -> f64 {
+        unsafe {
+            cpp {
+                "return this->scale_as_int();"
+            }
+        }
+        abort()
+    }
+
+    public fn construct(
+        mut sdl: SDL
+        screen_w: u64
+        screen_h: u64
+        cell_size: u64
+        config: PainterConfig
+    ) throws -> Painter {
+        sdl.init_video(width: screen_w as! i64, height: screen_h as! i64, title: config.window_title)
+        return Painter(sdl, screen_w, screen_h, cell_size, config)
+    }
+
+    public fn clear_screen(this) {
+        let (r, g, b, a) = .config.bg_color
+        .sdl.set_render_draw_color(red: r, green: g, blue: b, alpha: a)
+        .sdl.render_clear()
+    }
+
+    public fn draw_grid(this) {
+        let (r, g, b, a) = .config.grid_color
+        .sdl.set_render_draw_color(red: r, green: g, blue: b, alpha: a)
+        for i in 1...screen_w {
+            if i % .cell_size == 0 {
+                .sdl.render_draw_line(
+                    x1: i as! i32
+                    y1: 0i32
+                    x2: i as! i32
+                    y2: .screen_h as! i32
+                )
+            }
+        }
+        for i in 1...screen_h {
+            if i % .cell_size == 0 {
+                .sdl.render_draw_line(
+                    x1: 0i32
+                    y1: i as! i32
+                    x2: .screen_w as! i32
+                    y2: i as! i32
+                )
+            }
+        }
+    }
+
+    public fn draw_alive_cells(this, cells: &[[Cell]]) {
+        let (r, g, b, a) = .config.alive_color
+        .sdl.set_render_draw_color(red: r, green: g, blue: b, alpha: a)
+        for row in cells {
+            for cell in row {
+                if cell.is_alive {
+                    .sdl.render_fill_rect(
+                        x: (cell.col * .cell_size) as! i32
+                        y: (cell.row * .cell_size) as! i32
+                        w: (.cell_size) as! i32
+                        h: (.cell_size) as! i32
+                    )
+                }
+            }
+        }
+    }
+
+    public fn draw_selection_rect(this, row: u64?, col: u64?) {
+        guard row is Some and col is Some else {
+            return
+        }
+
+        let (r, g, b, a) = .config.selection_color
+        .sdl.set_render_draw_color(red: r, green: g, blue: b, alpha: a)
+
+        let scale_i = .scale_as_int()
+        let scale_f = .scale_as_float()
+        .sdl.render_set_scale(scale_x: scale_f, scale_y: scale_f)
+        defer .sdl.render_set_scale(scale_x: 1.0, scale_y: 1.0)
+
+        .sdl.render_draw_rect(
+            x: ((col! * .cell_size) / scale_i) as! i32
+            y: ((row! * .cell_size) / scale_i) as! i32
+            w: (.cell_size / scale_i) as! i32
+            h: (.cell_size / scale_i) as! i32
+        )
+    }
+
+    public fn commit(this) {
+        .sdl.render_present()
+    }
+}
