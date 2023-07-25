@@ -1,3 +1,4 @@
+import jakt::platform::utility { null }
 import extern c "SDL.h" {
     extern struct SDL_Renderer {}
     extern struct SDL_Window {}
@@ -103,16 +104,6 @@ enum SDLEvent {
     ButtonUp(button: Button)
 }
 
-// TODO: nullptr constant anyone?
-fn null<T>() -> raw T {
-    unsafe {
-        cpp {
-            "return nullptr;"
-        }
-    }
-    abort()
-}
-
 class SDL {
     renderer: raw SDL_Renderer
     window: raw SDL_Window
@@ -123,12 +114,12 @@ class SDL {
 
     public fn construct() throws -> SDL {
         return SDL(
-            renderer: null<SDL_Renderer>()
-            window: null<SDL_Window>()
+            renderer: null<raw SDL_Renderer>()
+            window: null<raw SDL_Window>()
             audio_device: 0
             surface: null()
             last_frame_time: 0
-            gamepad: null<SDL_GameController>()
+            gamepad: null<raw SDL_GameController>()
         )
     }
 
