@@ -1,6 +1,8 @@
 # Conway's Game of Life - Jakt
 This is an implementation of [Conway's Game of Life](https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life) in jakt using SDL2 to draw to the screen.
 
+![image of the game running](shot.png "Screenshot")
+
 ## Compile and run
 1. Clone and build [jakt](https://github.com/SerenityOS/jakt) 
 2. Install SDL2 for your platform (out of scope for this readme).
